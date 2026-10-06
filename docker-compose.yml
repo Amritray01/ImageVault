@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: imagevault_api
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      - APP_NAME=ImageVault
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8000}
+      - DEBUG=false
+      - STORAGE_BACKEND=s3
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-imagevault-prod-storage}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/imagevault
+      - DEFAULT_JPEG_QUALITY=80
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
+    container_name: imagevault_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: imagevault
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d imagevault"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
