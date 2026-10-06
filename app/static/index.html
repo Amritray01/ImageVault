@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageVault — Image Storage & Processing Service</title>
+    <meta name="description" content="High-Performance Image Storage & Compression Microservice with SHA-256 Deduplication, EXIF Stripping, and pHash Visual Similarity Search.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation / Top Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-vault"></i>
+                </div>
+                <div>
+                    <h1 class="brand-title">Image<span>Vault</span></h1>
+                    <p class="brand-subtitle">Pillow JPEG Compression &amp; Dual Hashing Engine</p>
+                </div>
+            </div>
+
+            <!-- Global Live Analytics Pill -->
+            <div class="header-stats-pill" id="headerStatsPill">
+                <div class="stat-pill-item">
+                    <span class="stat-pill-label">Total Images</span>
+                    <span class="stat-pill-value" id="statTotalImages">0</span>
+                </div>
+                <div class="stat-pill-divider"></div>
+                <div class="stat-pill-item">
+                    <span class="stat-pill-label">Storage Saved</span>
+                    <span class="stat-pill-value highlight-green" id="statSavedBytes">0 KB</span>
+                </div>
+                <div class="stat-pill-divider"></div>
+                <div class="stat-pill-item">
+                    <span class="stat-pill-label">Avg. Savings</span>
+                    <span class="stat-pill-value highlight-blue" id="statAvgSavings">0%</span>
+                </div>
+            </div>
+
+            <!-- Top Actions -->
+            <div class="header-actions">
+                <a href="/docs" target="_blank" class="btn btn-secondary" title="Open FastAPI Interactive OpenAPI Docs">
+                    <i class="fa-solid fa-code"></i> API Docs
+                </a>
+                <button class="btn btn-primary" id="btnOpenUploadModal">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload &amp; Compress
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Layout with Sidebar and Content -->
+        <div class="main-layout">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <nav class="sidebar-nav">
+                    <button class="nav-item active" data-tab="gallery">
+                        <i class="fa-solid fa-images"></i>
+                        <span>Gallery &amp; Vault</span>
+                    </button>
+                    <button class="nav-item" data-tab="upload">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Upload Pipeline</span>
+                    </button>
+                    <button class="nav-item" data-tab="analytics">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Storage Analytics</span>
+                    </button>
+                    <button class="nav-item" data-tab="architecture">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span>Architecture &amp; Docs</span>
+                    </button>
+                </nav>
+
+                <!-- Storage Backend Status -->
+                <div class="sidebar-card">
+                    <div class="card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                    <div class="card-title">Security &amp; Pipeline</div>
+                    <ul class="pipeline-feature-list">
+                        <li><i class="fa-solid fa-check"></i> SHA-256 Digest</li>
+                        <li><i class="fa-solid fa-check"></i> pHash (DCT 64-bit)</li>
+                        <li><i class="fa-solid fa-check"></i> EXIF Privacy Scrubbing</li>
+                        <li><i class="fa-solid fa-check"></i> Progressive JPEG</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="content-area">
+                <!-- Tab 1: Gallery & Vault -->
+                <section class="tab-pane active" id="tab-gallery">
+                    <!-- Search & Filter Bar -->
+                    <div class="filter-bar">
+                        <div class="search-input-wrapper">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="searchInput" placeholder="Search by title, filename, or description...">
+                        </div>
+                        <div class="filter-controls">
+                            <select id="tagFilter" class="select-dropdown">
+                                <option value="">All Tags</option>
+                            </select>
+                            <select id="sortByFilter" class="select-dropdown">
+                                <option value="date_desc">Newest First</option>
+                                <option value="date_asc">Oldest First</option>
+                                <option value="savings_desc">Highest Savings %</option>
+                                <option value="size_desc">Largest Size</option>
+                            </select>
+                            <button class="btn btn-icon" id="btnRefreshGallery" title="Refresh Vault">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Gallery Grid -->
+                    <div class="gallery-grid" id="galleryGrid">
+                        <!-- Dynamic Image Cards Loaded via JS -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="galleryEmptyState" style="display: none;">
+                        <i class="fa-regular fa-image empty-icon"></i>
+                        <h3>No images stored yet</h3>
+                        <p>Upload any image (PNG, WebP, JPEG, TIFF) to automatically compress to JPEG, scrub metadata, and generate hashes.</p>
+                        <button class="btn btn-primary" onclick="switchTab('upload')">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Upload First Image
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Tab 2: Upload Pipeline -->
+                <section class="tab-pane" id="tab-upload">
+                    <div class="upload-container">
+                        <div class="upload-header">
+                            <h2>Automated Image Processing &amp; Compression Pipeline</h2>
+                            <p>All uploads are automatically converted into progressive, optimized JPEG format with privacy-sanitized EXIF data.</p>
+                        </div>
+
+                        <div class="upload-grid">
+                            <!-- Dropzone -->
+                            <div class="dropzone-card" id="dropzoneCard">
+                                <input type="file" id="fileInput" accept="image/*" class="file-input-hidden">
+                                <div class="dropzone-content" id="dropzonePrompt">
+                                    <div class="dropzone-icon">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    </div>
+                                    <h3>Drag &amp; drop your image here</h3>
+                                    <p>Supports PNG, JPEG, WebP, BMP, TIFF (Up to 50MB)</p>
+                                    <button type="button" class="btn btn-secondary" id="btnBrowseFiles">Browse Files</button>
+                                </div>
+                                <div class="preview-box" id="uploadPreviewBox" style="display: none;">
+                                    <img id="previewImage" src="" alt="Preview">
+                                    <button class="btn-remove-preview" id="btnRemovePreview" title="Remove image">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Upload Options Form -->
+                            <div class="upload-settings-card">
+                                <h3><i class="fa-solid fa-sliders"></i> Compression &amp; Metadata Settings</h3>
+                                
+                                <form id="uploadForm">
+                                    <div class="form-group">
+                                        <label for="inputTitle">Image Title (Optional)</label>
+                                        <input type="text" id="inputTitle" class="form-control" placeholder="e.g. Scenic Mountain Sunset">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="inputTags">Tags (Comma-separated)</label>
+                                        <input type="text" id="inputTags" class="form-control" placeholder="nature, photography, landscape">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <div class="slider-label-row">
+                                            <label for="inputQuality">JPEG Quality (<span id="qualityVal">80</span>%)</label>
+                                            <span class="badge-pill">Optimized Balance</span>
+                                        </div>
+                                        <input type="range" id="inputQuality" min="40" max="95" value="80" class="slider-input">
+                                        <div class="slider-ticks">
+                                            <span>40% (Max Compression)</span>
+                                            <span>80% (Recommended)</span>
+                                            <span>95% (Lossless-like)</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="inputDescription">Description</label>
+                                        <textarea id="inputDescription" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+                                    </div>
+
+                                    <div class="privacy-badge-box">
+                                        <div class="privacy-badge-icon"><i class="fa-solid fa-user-shield"></i></div>
+                                        <div>
+                                            <strong>Automated Privacy Stripping</strong>
+                                            <p>EXIF geolocation, camera serials, and author tags will be safely sanitized before storage.</p>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary btn-block" id="btnSubmitUpload" disabled>
+                                        <i class="fa-solid fa-bolt"></i> Process, Compress &amp; Save
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Upload Result Card -->
+                        <div class="upload-result-container" id="uploadResultContainer" style="display: none;">
+                            <!-- Injected dynamically via app.js -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab 3: Storage Analytics -->
+                <section class="tab-pane" id="tab-analytics">
+                    <div class="analytics-container">
+                        <h2>Storage &amp; Compression Analytics</h2>
+                        <p class="subtitle">Real-time aggregate data across the entire ImageVault storage repository.</p>
+
+                        <div class="stats-cards-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon icon-purple"><i class="fa-regular fa-images"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-number" id="analyticsTotalCount">0</span>
+                                    <span class="stat-title">Total Managed Images</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon icon-yellow"><i class="fa-solid fa-weight-hanging"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-number" id="analyticsOrigSize">0 MB</span>
+                                    <span class="stat-title">Raw Uncompressed Size</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon icon-green"><i class="fa-solid fa-floppy-disk"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-number highlight-green" id="analyticsCompSize">0 MB</span>
+                                    <span class="stat-title">Stored JPEG Size</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon icon-cyan"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-number highlight-blue" id="analyticsAvgRatio">0%</span>
+                                    <span class="stat-title">Storage Bandwidth Reduction</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deduplication & Security Architecture Explanations -->
+                        <div class="analytics-details-grid">
+                            <div class="card-panel">
+                                <h3><i class="fa-solid fa-fingerprint"></i> Dual Hashing Verification</h3>
+                                <div class="hash-explanation-box">
+                                    <div class="hash-type-item">
+                                        <div class="badge-hash sha256">SHA-256 Digest</div>
+                                        <p>Generates a 256-bit cryptographic digest of raw uploaded bytes. Guaranteed bit-for-bit duplicate detection and S3 upload integrity verification.</p>
+                                    </div>
+                                    <div class="hash-type-item">
+                                        <div class="badge-hash phash">pHash (DCT 64-bit)</div>
+                                        <p>Computes perceptual frequency coefficients using 2D Discrete Cosine Transform. Detects visual similarities and re-saved/cropped versions via Hamming distance.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-panel">
+                                <h3><i class="fa-solid fa-shield-virus"></i> Metadata Privacy Scrubbing</h3>
+                                <p>Consumer cameras &amp; smartphones embed sensitive EXIF metadata. ImageVault parses technical data into structured records while ensuring stored JPEG assets contain zero leaked GPS coordinates.</p>
+                                <div class="metric-progress-bar-wrapper">
+                                    <div class="bar-label">
+                                        <span>EXIF Geolocation Sanitization Rate</span>
+                                        <strong>100%</strong>
+                                    </div>
+                                    <div class="progress-track"><div class="progress-fill" style="width: 100%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab 4: Architecture & Docs -->
+                <section class="tab-pane" id="tab-architecture">
+                    <div class="docs-container">
+                        <h2>ImageVault System Architecture &amp; Key Features</h2>
+                        <div class="arch-card">
+                            <div class="arch-flow">
+                                <div class="flow-step">
+                                    <div class="flow-circle"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                                    <h4>1. REST Ingestion</h4>
+                                    <p>FastAPI multipart endpoint validates file type and size constraints.</p>
+                                </div>
+                                <div class="flow-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                                <div class="flow-step">
+                                    <div class="flow-circle"><i class="fa-solid fa-fingerprint"></i></div>
+                                    <h4>2. SHA-256 &amp; EXIF</h4>
+                                    <p>Computes exact byte hash, reads camera info, and extracts GPS coordinates.</p>
+                                </div>
+                                <div class="flow-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                                <div class="flow-step">
+                                    <div class="flow-circle"><i class="fa-solid fa-compress"></i></div>
+                                    <h4>3. Pillow JPEG Engine</h4>
+                                    <p>Auto-orients, strips EXIF, optimizes Huffman tables, and encodes progressive JPEG.</p>
+                                </div>
+                                <div class="flow-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                                <div class="flow-step">
+                                    <div class="flow-circle"><i class="fa-solid fa-eye"></i></div>
+                                    <h4>4. 2D DCT pHash</h4>
+                                    <p>Calculates 64-bit perceptual hash and indexes visual duplicates.</p>
+                                </div>
+                                <div class="flow-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                                <div class="flow-step">
+                                    <div class="flow-circle"><i class="fa-solid fa-database"></i></div>
+                                    <h4>5. PostgreSQL &amp; S3</h4>
+                                    <p>Stores binary assets to AWS S3/MinIO &amp; metadata/tags to PostgreSQL.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Image Details & EXIF Inspector Modal -->
+    <div class="modal-overlay" id="imageModal" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <h3 id="modalImageTitle">Image Details</h3>
+                    <span class="badge-format" id="modalFormatBadge">JPEG</span>
+                </div>
+                <button class="btn-close-modal" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid">
+                    <!-- Image Preview Column -->
+                    <div class="modal-preview-col">
+                        <div class="modal-image-wrapper">
+                            <img id="modalImagePreview" src="" alt="Selected Image">
+                        </div>
+                        <div class="modal-action-bar">
+                            <a id="btnModalDownload" href="" class="btn btn-primary" download>
+                                <i class="fa-solid fa-download"></i> Download Optimized JPEG
+                            </a>
+                            <button id="btnModalDelete" class="btn btn-danger">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Metadata Column -->
+                    <div class="modal-details-col">
+                        <!-- Compression Stats -->
+                        <div class="metric-highlight-banner">
+                            <div class="banner-stat">
+                                <span class="label">Original Size</span>
+                                <span class="val" id="modalOrigSize">0 KB</span>
+                            </div>
+                            <div class="banner-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                            <div class="banner-stat">
+                                <span class="label">Optimized JPEG</span>
+                                <span class="val highlight-green" id="modalCompSize">0 KB</span>
+                            </div>
+                            <div class="banner-stat">
+                                <span class="label">Savings</span>
+                                <span class="val highlight-blue" id="modalSavingsPercent">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Technical Specs -->
+                        <div class="detail-section">
+                            <h4><i class="fa-solid fa-circle-info"></i> Technical Specifications</h4>
+                            <div class="specs-table">
+                                <div class="spec-row"><span>Dimensions:</span> <strong id="modalDimensions">0 x 0</strong></div>
+                                <div class="spec-row"><span>Aspect Ratio:</span> <strong id="modalAspectRatio">1.0</strong></div>
+                                <div class="spec-row"><span>JPEG Quality:</span> <strong id="modalQuality">80</strong></div>
+                                <div class="spec-row"><span>Original Name:</span> <strong id="modalOriginalName">image.jpg</strong></div>
+                            </div>
+                        </div>
+
+                        <!-- Hashes & Deduplication -->
+                        <div class="detail-section">
+                            <h4><i class="fa-solid fa-fingerprint"></i> Hashes &amp; Integrity</h4>
+                            <div class="hash-display-box">
+                                <label>SHA-256 Digest (Exact Match):</label>
+                                <code id="modalSha256">...</code>
+                            </div>
+                            <div class="hash-display-box">
+                                <label>Perceptual Hash (DCT pHash):</label>
+                                <code id="modalPhash">...</code>
+                            </div>
+                        </div>
+
+                        <!-- EXIF Metadata & Privacy Sanitization -->
+                        <div class="detail-section">
+                            <h4><i class="fa-solid fa-shield-halved"></i> Privacy &amp; EXIF Metadata</h4>
+                            <div id="modalExifContainer" class="exif-tag-container">
+                                <!-- Dynamic EXIF tags rendered here -->
+                            </div>
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="detail-section">
+                            <h4><i class="fa-solid fa-tags"></i> Tags</h4>
+                            <div class="tags-row" id="modalTagsContainer"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
