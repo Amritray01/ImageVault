@@ -4,6 +4,9 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.tag import image_tags
 
+def get_utc_now():
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
 class Image(Base):
     __tablename__ = "images"
 
@@ -23,13 +26,13 @@ class Image(Base):
     # Compression and Storage Metrics
     original_size_bytes = Column(Integer, nullable=False)
     compressed_size_bytes = Column(Integer, nullable=False)
-    compression_ratio = Column(Float, nullable=False)  # e.g., 2.5 means 2.5x smaller
-    savings_percent = Column(Float, nullable=False)    # e.g., 60.5%
+    compression_ratio = Column(Float, nullable=False)
+    savings_percent = Column(Float, nullable=False)
     jpeg_quality = Column(Integer, default=80, nullable=False)
     
     # Hashes & Deduplication
-    sha256_hash = Column(String(64), index=True, nullable=False)  # Exact duplicate detection
-    phash = Column(String(32), index=True, nullable=False)         # Perceptual hash for visual similarity
+    sha256_hash = Column(String(64), index=True, nullable=False)
+    phash = Column(String(32), index=True, nullable=False)
     
     # Storage Paths / S3 Keys
     storage_path = Column(String(500), nullable=False)
@@ -39,9 +42,9 @@ class Image(Base):
     exif_stripped = Column(Boolean, default=True, nullable=False)
     metadata_json = Column(JSON, default=dict, nullable=False)
     
-    # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+    # Timestamps (Naive UTC for asyncpg & PostgreSQL compatibility)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
     
     # Relationships
     tags = relationship("Tag", secondary=image_tags, back_populates="images", lazy="selectin")
